@@ -29,24 +29,46 @@ pub const Lexer = struct {
     }
 
     pub fn readChar(self: *Self) void {
-        if (self.read_position >= self.input.len) {
-            self.ch = 0;
-        } else {
-            self.ch = self.input[self.read_position];
-        }
+        self.ch = if (self.read_position >= self.input.len)
+            0
+        else
+            self.input[self.read_position];
 
         self.position = self.read_position;
         self.read_position += 1;
+    }
+
+    fn peekChar(self: *Self) u8 {
+        return if (self.read_position >= self.input.len)
+            0
+        else
+            self.input[self.read_position];
     }
 
     pub fn nextToken(self: *Self) Token {
         self.skipWhitespace();
 
         const tok = switch (self.ch) {
-            '=' => Token.init(.assign, self.currentSlice(1)),
+            '=' => blk: {
+                if (self.peekChar() != '=') {
+                    break :blk Token.init(.assign, self.currentSlice(1));
+                }
+
+                const literal = self.currentSlice(2);
+                self.readChar();
+                break :blk Token.init(.eq, literal);
+            },
             '+' => Token.init(.plus, self.currentSlice(1)),
             '-' => Token.init(.minus, self.currentSlice(1)),
-            '!' => Token.init(.bang, self.currentSlice(1)),
+            '!' => blk: {
+                if (self.peekChar() != '=') {
+                    break :blk Token.init(.bang, self.currentSlice(1));
+                }
+
+                const literal = self.currentSlice(2);
+                self.readChar();
+                break :blk Token.init(.not_eq, literal);
+            },
             '/' => Token.init(.slash, self.currentSlice(1)),
             '*' => Token.init(.asterisk, self.currentSlice(1)),
             '<' => Token.init(.lt, self.currentSlice(1)),
@@ -145,6 +167,9 @@ test "Next Token" {
         \\} else {
         \\    return false;
         \\}
+        \\
+        \\10 == 10;
+        \\10 != 9;
     ;
 
     const tests = [_]Token{
@@ -221,6 +246,16 @@ test "Next Token" {
         Token.init(.false, "false"),
         Token.init(.semicolon, ";"),
         Token.init(.r_brace, "}"),
+
+        Token.init(.int, "10"),
+        Token.init(.eq, "=="),
+        Token.init(.int, "10"),
+        Token.init(.semicolon, ";"),
+
+        Token.init(.int, "10"),
+        Token.init(.not_eq, "!="),
+        Token.init(.int, "9"),
+        Token.init(.semicolon, ";"),
 
         Token.init(.eof, ""),
     };

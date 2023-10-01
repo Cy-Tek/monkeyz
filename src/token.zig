@@ -16,6 +16,8 @@ pub const TokenType = enum {
 
     lt,
     gt,
+    eq,
+    not_eq,
 
     // Delimiters
     comma,
@@ -53,6 +55,8 @@ pub const TokenType = enum {
 
         "LT",
         "GT",
+        "Equal",
+        "Not Equal",
 
         // Delimiters
         "Comma",
