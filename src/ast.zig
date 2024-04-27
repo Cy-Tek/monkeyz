@@ -66,6 +66,10 @@ pub const Statement = union(StatementTag) {
             .identifier => |val| val.token.literal,
         };
     }
+
+    pub fn node(self: Self) Node {
+        return Node{ .statement = self };
+    }
 };
 
 // Statements
@@ -73,11 +77,19 @@ pub const LetStatement = struct {
     token: Token,
     name: *Identifier,
     value: Expression,
+
+    pub fn statement(self: @This()) Statement {
+        return Statement{ .let = self };
+    }
 };
 
 pub const Identifier = struct {
     token: Token,
     value: []const u8,
+
+    pub fn statement(self: @This()) Statement {
+        return Statement{ .identifier = self };
+    }
 };
 
 pub const ExpressionTag = enum {};

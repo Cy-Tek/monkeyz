@@ -8,6 +8,7 @@ const ast = @import("./ast.zig");
 
 const Program = ast.Program;
 const Token = tok.Token;
+const TokenType = tok.TokenType;
 
 const Parser = struct {
     const Self = @This();
@@ -52,8 +53,40 @@ const Parser = struct {
     }
 
     fn parseLetStatement(self: *Self) ?ast.LetStatement {
-        _ = self;
-        return null;
+        const current_token = self.current_token;
+
+        if (!self.expectPeek(.ident)) {
+            return null;
+        }
+
+        const name = ast.Identifier{
+            .token = self.current_token,
+            .value = self.current_token.literal,
+        };
+
+        if (!self.expectPeek(.assign)) {
+            return null;
+        }
+
+        return ast.LetStatement{
+            .token = current_token,
+            .name = name,
+        };
+    }
+
+    fn currentTokenIs(self: Self, token_type: TokenType) bool {
+        return self.current_token.type_ == token_type;
+    }
+
+    fn peekTokenIs(self: Self, token_type: TokenType) bool {
+        return self.peek_token.type_ == token_type;
+    }
+
+    fn expectPeek(self: *Self, token_type: TokenType) bool {
+        return if (self.peekTokenIs(token_type)) blk: {
+            self.nextToken();
+            break :blk true;
+        } else false;
     }
 };
 
