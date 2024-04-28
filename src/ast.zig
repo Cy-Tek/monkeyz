@@ -75,8 +75,8 @@ pub const Statement = union(StatementTag) {
 // Statements
 pub const LetStatement = struct {
     token: Token,
-    name: *Identifier,
-    value: Expression,
+    name: Identifier,
+    value: ?Expression = null,
 
     pub fn statement(self: @This()) Statement {
         return Statement{ .let = self };
@@ -88,7 +88,11 @@ pub const Identifier = struct {
     value: []const u8,
 
     pub fn statement(self: @This()) Statement {
-        return Statement{ .identifier = self };
+        return Statement{ .let = self };
+    }
+
+    pub fn tokenLiteral(self: @This()) []const u8 {
+        return self.token.literal;
     }
 };
 

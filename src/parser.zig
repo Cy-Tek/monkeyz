@@ -38,7 +38,7 @@ const Parser = struct {
         var program = Program.init(self.allocator);
         while (self.current_token.type_ != .eof) : (self.nextToken()) {
             if (self.parseStatement()) |statement| {
-                program.statements.append(statement);
+                try program.statements.append(statement);
             }
         }
 
@@ -52,7 +52,7 @@ const Parser = struct {
         };
     }
 
-    fn parseLetStatement(self: *Self) ?ast.LetStatement {
+    fn parseLetStatement(self: *Self) ?ast.Statement {
         const current_token = self.current_token;
 
         if (!self.expectPeek(.ident)) {
@@ -68,10 +68,16 @@ const Parser = struct {
             return null;
         }
 
-        return ast.LetStatement{
+        while (!self.currentTokenIs(.semicolon)) {
+            self.nextToken();
+        }
+
+        const let_stmt = ast.LetStatement{
             .token = current_token,
             .name = name,
         };
+
+        return let_stmt.statement();
     }
 
     fn currentTokenIs(self: Self, token_type: TokenType) bool {
@@ -103,7 +109,7 @@ test "Let Statements" {
     var program = try parser.parseProgram();
     defer program.deinit();
 
-    try testing.expectEqual(@as(usize, 3), program.statements.len);
+    try testing.expectEqual(@as(usize, 3), program.statements.items.len);
 
     const tests = [_][]const u8{
         "x",
@@ -112,14 +118,13 @@ test "Let Statements" {
     };
 
     for (tests, 0..) |expected, i| {
-        const statement = program.statements[i];
+        const statement = program.statements.items[i];
         try testing.expectEqualStrings("let", statement.tokenLiteral());
-        try testing.expectEqualStrings(expected, statement.identifier.value);
 
         switch (statement) {
             .let => |let_stmt| {
                 try testing.expectEqualStrings(expected, let_stmt.name.value);
-                try testing.expectEqualStrings(expected, let_stmt.name.token.literal);
+                try testing.expectEqualStrings(expected, let_stmt.name.tokenLiteral());
             },
             else => return error.IllegalType,
         }
