@@ -22,9 +22,9 @@ const Parser = struct {
 
     errors: ArrayList([]const u8),
 
-    pub fn init(lexer: *l.Lexer, alloc: Allocator) Self {
+    pub fn init(input: []const u8, alloc: Allocator) Self {
         var parser = Self{
-            .lex = lexer,
+            .lex = l.Lexer.init(input),
             .allocator = alloc,
             .errors = ArrayList([]const u8).init(alloc),
         };
@@ -135,9 +135,7 @@ test "Let Statements" {
         \\let foobar = 838383;
     ;
 
-    var lex = l.Lexer.init(input);
-
-    var parser = Parser.init(&lex, testing.allocator);
+    var parser = Parser.init(input, testing.allocator);
     defer parser.deinit();
 
     var program = try parser.parseProgram();
