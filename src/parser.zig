@@ -14,7 +14,7 @@ const TokenType = tok.TokenType;
 const Parser = struct {
     const Self = @This();
 
-    lex: *l.Lexer,
+    lex: l.Lexer,
     allocator: Allocator,
 
     current_token: Token = Token{ .type_ = .illegal, .literal = "" },
@@ -59,6 +59,7 @@ const Parser = struct {
     fn parseStatement(self: *Self) !?ast.Statement {
         return switch (self.current_token.type_) {
             .let => try self.parseLetStatement(),
+            .@"return" => try self.parseReturnStatement(),
             else => null,
         };
     }
@@ -89,6 +90,18 @@ const Parser = struct {
         };
 
         return let_stmt.statement();
+    }
+
+    fn parseReturnStatement(self: *Self) !?ast.Statement {
+        const return_statement = ast.ReturnStatement{ .token = self.current_token };
+
+        self.nextToken();
+
+        while (!self.currentTokenIs(.semicolon)) {
+            self.nextToken();
+        }
+
+        return return_statement.statement();
     }
 
     fn currentTokenIs(self: Self, token_type: TokenType) bool {
@@ -142,7 +155,7 @@ test "Let Statements" {
     defer program.deinit();
 
     try checkParserErrors(parser);
-    try testing.expectEqual(@as(usize, 3), program.statements.items.len);
+    try testing.expectEqual(3, program.statements.items.len);
 
     const tests = [_][]const u8{
         "x",
@@ -159,7 +172,34 @@ test "Let Statements" {
                 try testing.expectEqualStrings(expected, let_stmt.name.value);
                 try testing.expectEqualStrings(expected, let_stmt.name.tokenLiteral());
             },
-            // else => return error.IllegalType,
+            else => return error.IllegalType,
+        }
+    }
+}
+
+test "Return Statements" {
+    const input =
+        \\return 5;
+        \\return 10;
+        \\return add(15);
+    ;
+
+    var parser = Parser.init(input, testing.allocator);
+    defer parser.deinit();
+
+    var program = try parser.parseProgram();
+    defer program.deinit();
+
+    try checkParserErrors(parser);
+    try testing.expectEqual(3, program.statements.items.len);
+
+    for (program.statements.items) |stmt| {
+        switch (stmt) {
+            .returns => |ret| {
+                try testing.expectEqualStrings("return", ret.tokenLiteral());
+                try testing.expectEqual(null, ret.value);
+            },
+            else => return error.IllegalType,
         }
     }
 }

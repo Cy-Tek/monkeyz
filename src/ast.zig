@@ -4,6 +4,28 @@ const ArrayList = std.ArrayList;
 
 const Token = @import("token.zig").Token;
 
+//  ── Node ────────────────────────────────────────────────────────────
+
+pub const NodeTag = enum {
+    program,
+    statement,
+    expression,
+};
+
+pub const Node = union(NodeTag) {
+    program: Program,
+    statement: Statement,
+    expression: Expression,
+
+    pub fn tokenLiteral(self: @This()) []const u8 {
+        return switch (self) {
+            .program => |val| val.tokenLiteral(),
+            .statement => |statement| statement.tokenLiteral(),
+            .expression => |expression| expression.tokenLiteral(),
+        };
+    }
+};
+
 pub const Program = struct {
     const Self = @This();
 
@@ -29,38 +51,22 @@ pub const Program = struct {
     }
 };
 
-pub const NodeTag = enum {
-    program,
-    statement,
-    expression,
-};
-
-pub const Node = union(NodeTag) {
-    program: Program,
-    statement: Statement,
-    expression: Expression,
-
-    pub fn tokenLiteral(self: @This()) []const u8 {
-        return switch (self) {
-            .program => |val| val.tokenLiteral(),
-            .statement => |statement| statement.tokenLiteral(),
-            .expression => |expression| expression.tokenLiteral(),
-        };
-    }
-};
+//  ── Statements ──────────────────────────────────────────────────────
 
 pub const StatementTag = enum {
     let,
+    returns,
 };
 
 pub const Statement = union(StatementTag) {
     const Self = @This();
 
     let: LetStatement,
+    returns: ReturnStatement,
 
     pub fn tokenLiteral(self: Self) []const u8 {
         return switch (self) {
-            .let => |val| val.token.literal,
+            inline else => |val| val.tokenLiteral(),
         };
     }
 
@@ -69,20 +75,10 @@ pub const Statement = union(StatementTag) {
     }
 };
 
-// Statements
 pub const LetStatement = struct {
     token: Token,
     name: Identifier,
     value: ?Expression = null,
-
-    pub fn statement(self: @This()) Statement {
-        return Statement{ .let = self };
-    }
-};
-
-pub const Identifier = struct {
-    token: Token,
-    value: []const u8,
 
     pub fn statement(self: @This()) Statement {
         return Statement{ .let = self };
@@ -92,6 +88,21 @@ pub const Identifier = struct {
         return self.token.literal;
     }
 };
+
+pub const ReturnStatement = struct {
+    token: Token,
+    value: ?Expression = null,
+
+    pub fn statement(self: @This()) Statement {
+        return Statement{ .returns = self };
+    }
+
+    pub fn tokenLiteral(self: @This()) []const u8 {
+        return self.token.literal;
+    }
+};
+
+//  ── Expressions ─────────────────────────────────────────────────────
 
 pub const ExpressionTag = enum {
     identifier,
@@ -110,5 +121,18 @@ pub const Expression = union(ExpressionTag) {
 
     pub fn node(self: Self) Node {
         return Node{ .expression = self };
+    }
+};
+
+pub const Identifier = struct {
+    token: Token,
+    value: []const u8,
+
+    pub fn statement(self: @This()) Statement {
+        return Statement{ .let = self };
+    }
+
+    pub fn tokenLiteral(self: @This()) []const u8 {
+        return self.token.literal;
     }
 };
