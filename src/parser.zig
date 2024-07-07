@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const l = @import("./lexer.zig");
 const tok = @import("./token.zig");
@@ -19,14 +20,24 @@ const Parser = struct {
     current_token: Token = Token{ .type_ = .illegal, .literal = "" },
     peek_token: Token = Token{ .type_ = .illegal, .literal = "" },
 
+    errors: ArrayList([]const u8),
+
     pub fn init(lexer: *l.Lexer, alloc: Allocator) Self {
-        var parser = Self{ .lex = lexer, .allocator = alloc };
+        var parser = Self{
+            .lex = lexer,
+            .allocator = alloc,
+            .errors = ArrayList([]const u8).init(alloc),
+        };
 
         // Read two tokens so that both the current and peek are satisfied
         parser.nextToken();
         parser.nextToken();
 
         return parser;
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.errors.deinit();
     }
 
     pub fn nextToken(self: *Self) void {
@@ -37,7 +48,7 @@ const Parser = struct {
     pub fn parseProgram(self: *Self) !Program {
         var program = Program.init(self.allocator);
         while (self.current_token.type_ != .eof) : (self.nextToken()) {
-            if (self.parseStatement()) |statement| {
+            if (try self.parseStatement()) |statement| {
                 try program.statements.append(statement);
             }
         }
@@ -45,17 +56,17 @@ const Parser = struct {
         return program;
     }
 
-    fn parseStatement(self: *Self) ?ast.Statement {
+    fn parseStatement(self: *Self) !?ast.Statement {
         return switch (self.current_token.type_) {
-            .let => self.parseLetStatement(),
+            .let => try self.parseLetStatement(),
             else => null,
         };
     }
 
-    fn parseLetStatement(self: *Self) ?ast.Statement {
+    fn parseLetStatement(self: *Self) !?ast.Statement {
         const current_token = self.current_token;
 
-        if (!self.expectPeek(.ident)) {
+        if (!try self.expectPeek(.ident)) {
             return null;
         }
 
@@ -64,7 +75,7 @@ const Parser = struct {
             .value = self.current_token.literal,
         };
 
-        if (!self.expectPeek(.assign)) {
+        if (!try self.expectPeek(.assign)) {
             return null;
         }
 
@@ -88,13 +99,34 @@ const Parser = struct {
         return self.peek_token.type_ == token_type;
     }
 
-    fn expectPeek(self: *Self, token_type: TokenType) bool {
-        return if (self.peekTokenIs(token_type)) blk: {
+    fn expectPeek(self: *Self, token_type: TokenType) !bool {
+        if (self.peekTokenIs(token_type)) {
             self.nextToken();
-            break :blk true;
-        } else false;
+            return true;
+        }
+
+        try self.peekError(token_type);
+        return false;
+    }
+
+    fn peekError(self: *Self, token_type: TokenType) !void {
+        const buf = try std.fmt.allocPrint(
+            self.allocator,
+            "Expected next token to be {any}, got {any} instead",
+            .{ token_type, self.peek_token.type_ },
+        );
+
+        try self.errors.append(buf);
     }
 };
+
+fn checkParserErrors(parser: Parser) !void {
+    for (parser.errors.items) |err| {
+        std.log.err("Parser error: {s}", .{err});
+    }
+
+    try testing.expectEqual(0, parser.errors.items.len);
+}
 
 test "Let Statements" {
     const input =
@@ -104,11 +136,14 @@ test "Let Statements" {
     ;
 
     var lex = l.Lexer.init(input);
+
     var parser = Parser.init(&lex, testing.allocator);
+    defer parser.deinit();
 
     var program = try parser.parseProgram();
     defer program.deinit();
 
+    try checkParserErrors(parser);
     try testing.expectEqual(@as(usize, 3), program.statements.items.len);
 
     const tests = [_][]const u8{
@@ -126,7 +161,7 @@ test "Let Statements" {
                 try testing.expectEqualStrings(expected, let_stmt.name.value);
                 try testing.expectEqualStrings(expected, let_stmt.name.tokenLiteral());
             },
-            else => return error.IllegalType,
+            // else => return error.IllegalType,
         }
     }
 }

@@ -3,7 +3,7 @@ const token = @import("token.zig");
 const TokenType = token.TokenType;
 const Token = token.Token;
 
-const keywords = std.ComptimeStringMap(TokenType, .{
+const keywords = std.StaticStringMap(TokenType).initComptime(.{
     .{ "fn", .function },
     .{ "let", .let },
     .{ "if", .@"if" },

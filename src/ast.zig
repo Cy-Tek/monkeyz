@@ -44,26 +44,23 @@ pub const Node = union(NodeTag) {
         return switch (self) {
             .program => |val| val.tokenLiteral(),
             .statement => |statement| statement.tokenLiteral(),
-            .expression => "",
+            .expression => |expression| expression.tokenLiteral(),
         };
     }
 };
 
 pub const StatementTag = enum {
     let,
-    identifier,
 };
 
 pub const Statement = union(StatementTag) {
     const Self = @This();
 
     let: LetStatement,
-    identifier: Identifier,
 
     pub fn tokenLiteral(self: Self) []const u8 {
         return switch (self) {
             .let => |val| val.token.literal,
-            .identifier => |val| val.token.literal,
         };
     }
 
@@ -96,5 +93,22 @@ pub const Identifier = struct {
     }
 };
 
-pub const ExpressionTag = enum {};
-pub const Expression = union(ExpressionTag) {};
+pub const ExpressionTag = enum {
+    identifier,
+};
+
+pub const Expression = union(ExpressionTag) {
+    const Self = @This();
+
+    identifier: Identifier,
+
+    pub fn tokenLiteral(self: Self) []const u8 {
+        return switch (self) {
+            .identifier => |ident| ident.token.literal,
+        };
+    }
+
+    pub fn node(self: Self) Node {
+        return Node{ .expression = self };
+    }
+};
