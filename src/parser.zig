@@ -195,7 +195,7 @@ test "Return Statements" {
 
     for (program.statements.items) |stmt| {
         switch (stmt) {
-            .returns => |ret| {
+            .@"return" => |ret| {
                 try testing.expectEqualStrings("return", ret.tokenLiteral());
                 try testing.expectEqual(null, ret.value);
             },

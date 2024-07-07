@@ -55,14 +55,14 @@ pub const Program = struct {
 
 pub const StatementTag = enum {
     let,
-    returns,
+    @"return",
 };
 
 pub const Statement = union(StatementTag) {
     const Self = @This();
 
     let: LetStatement,
-    returns: ReturnStatement,
+    @"return": ReturnStatement,
 
     pub fn tokenLiteral(self: Self) []const u8 {
         return switch (self) {
@@ -94,7 +94,7 @@ pub const ReturnStatement = struct {
     value: ?Expression = null,
 
     pub fn statement(self: @This()) Statement {
-        return Statement{ .returns = self };
+        return Statement{ .@"return" = self };
     }
 
     pub fn tokenLiteral(self: @This()) []const u8 {
