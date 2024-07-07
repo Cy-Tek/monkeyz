@@ -115,7 +115,7 @@ pub const Expression = union(ExpressionTag) {
 
     pub fn tokenLiteral(self: Self) []const u8 {
         return switch (self) {
-            .identifier => |ident| ident.token.literal,
+            inline else => |val| val.tokenLiteral(),
         };
     }
 
