@@ -1,5 +1,4 @@
 const std = @import("std");
-const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
@@ -132,6 +131,10 @@ const Parser = struct {
         try self.errors.append(buf);
     }
 };
+
+//  ── Tests ───────────────────────────────────────────────────────────
+
+const testing = std.testing;
 
 fn checkParserErrors(parser: Parser) !void {
     for (parser.errors.items) |err| {
