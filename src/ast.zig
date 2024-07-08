@@ -24,6 +24,12 @@ pub const Node = union(NodeTag) {
             .expression => |expression| expression.tokenLiteral(),
         };
     }
+
+    pub fn string(self: @This(), writer: anytype) !void {
+        switch (self) {
+            inline else => |val| try val.string(writer),
+        }
+    }
 };
 
 pub const Program = struct {
@@ -43,11 +49,21 @@ pub const Program = struct {
         self.statements.deinit();
     }
 
-    pub fn tokenLiteral(self: @This()) []const u8 {
+    pub fn addStatement(self: *Self, statement: Statement) !void {
+        try self.statements.append(statement);
+    }
+
+    pub fn tokenLiteral(self: Self) []const u8 {
         return if (self.statements.len > 0)
             self.statements[0].tokenLiteral()
         else
             "";
+    }
+
+    pub fn string(self: Self, writer: anytype) !void {
+        for (self.statements.items) |statement| {
+            try statement.string(writer);
+        }
     }
 };
 
@@ -56,6 +72,7 @@ pub const Program = struct {
 pub const StatementTag = enum {
     let,
     @"return",
+    expression,
 };
 
 pub const Statement = union(StatementTag) {
@@ -63,6 +80,7 @@ pub const Statement = union(StatementTag) {
 
     let: LetStatement,
     @"return": ReturnStatement,
+    expression: ExpressionStatement,
 
     pub fn tokenLiteral(self: Self) []const u8 {
         return switch (self) {
@@ -72,6 +90,12 @@ pub const Statement = union(StatementTag) {
 
     pub fn node(self: Self) Node {
         return Node{ .statement = self };
+    }
+
+    pub fn string(self: Self, writer: anytype) !void {
+        switch (self) {
+            inline else => |statement| try statement.string(writer),
+        }
     }
 };
 
@@ -87,6 +111,21 @@ pub const LetStatement = struct {
     pub fn tokenLiteral(self: @This()) []const u8 {
         return self.token.literal;
     }
+
+    pub fn string(self: @This(), writer: anytype) !void {
+        try std.fmt.format(writer, "{s} ", .{
+            self.tokenLiteral(),
+        });
+
+        try self.name.string(writer);
+        try std.fmt.format(writer, " = ", .{});
+
+        if (self.value) |val| {
+            try val.string(writer);
+        }
+
+        try std.fmt.format(writer, ";", .{});
+    }
 };
 
 pub const ReturnStatement = struct {
@@ -99,6 +138,35 @@ pub const ReturnStatement = struct {
 
     pub fn tokenLiteral(self: @This()) []const u8 {
         return self.token.literal;
+    }
+
+    pub fn string(self: @This(), writer: anytype) !void {
+        try std.fmt.format(writer, "{s} ", .{self.tokenLiteral()});
+
+        if (self.value) |value| {
+            try value.string(writer);
+        }
+
+        try std.fmt.format(writer, ";", .{});
+    }
+};
+
+pub const ExpressionStatement = struct {
+    token: Token,
+    expression: ?Expression = null,
+
+    pub fn statement(self: @This()) []const u8 {
+        return Statement{ .expression = self };
+    }
+
+    pub fn tokenLiteral(self: @This()) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn string(self: @This(), writer: anytype) !void {
+        if (self.expression) |expression| {
+            try expression.string(writer);
+        }
     }
 };
 
@@ -122,6 +190,12 @@ pub const Expression = union(ExpressionTag) {
     pub fn node(self: Self) Node {
         return Node{ .expression = self };
     }
+
+    pub fn string(self: Self, writer: anytype) !void {
+        switch (self) {
+            inline else => |expression| try expression.string(writer),
+        }
+    }
 };
 
 pub const Identifier = struct {
@@ -135,4 +209,35 @@ pub const Identifier = struct {
     pub fn tokenLiteral(self: @This()) []const u8 {
         return self.token.literal;
     }
+
+    pub fn string(self: @This(), writer: anytype) !void {
+        try std.fmt.format(writer, "{s}", .{self.value});
+    }
 };
+
+//  ── Tests ───────────────────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "To String" {
+    var program = Program.init(testing.allocator);
+    defer program.deinit();
+
+    try program.addStatement(Statement{ .let = LetStatement{
+        .token = Token{ .type_ = .let, .literal = "let" },
+        .name = Identifier{
+            .token = Token{ .type_ = .ident, .literal = "myVar" },
+            .value = "myVar",
+        },
+        .value = Expression{ .identifier = Identifier{
+            .token = Token{ .type_ = .ident, .literal = "anotherVar" },
+            .value = "anotherVar",
+        } },
+    } });
+
+    var buffer = ArrayList(u8).init(testing.allocator);
+    defer buffer.deinit();
+
+    try program.string(buffer.writer());
+    try testing.expectEqualStrings("let myVar = anotherVar;", buffer.items);
+}
